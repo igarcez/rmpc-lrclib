@@ -51,5 +51,5 @@ script plus its rmpc wiring (`examples/config.ron`) and docs (`README.md`).
 
 ## Reference
 
-- LRCLIB API: `https://lrclib.net/api` (`/search`, `/get`)
+- LRCLIB API contract (endpoints, params, fields): [lrclib-api.md](lrclib-api.md)
 - rmpc config docs: `https://mierak.github.io/rmpc/`

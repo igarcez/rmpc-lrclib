@@ -37,3 +37,4 @@ Index of project instructions. Read referenced file when topic matches.
 
 - If working on the lyrics fetch behavior, the rmpc `on_song_change` wiring, the LRCLIB API calls, the miss cache, or keeping `scripts/lyrics-fetch.sh` / `examples/config.ron` / `README.md` in sync → read [intelligence/lyrics-hook.md](intelligence/lyrics-hook.md)
 - If editing any `*.sh` script in this repo (POSIX `sh` conventions, quoting, `set -u`, syntax-checking) → read [intelligence/shell-style.md](intelligence/shell-style.md)
+- If you need the LRCLIB API contract — endpoints, query params, track-record fields, the publish/proof-of-work flow, or rate-limit/User-Agent guidance → read [intelligence/lrclib-api.md](intelligence/lrclib-api.md)
