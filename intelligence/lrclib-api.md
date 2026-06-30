@@ -46,7 +46,9 @@ Returned by `/api/get`, `/api/get/{id}`, and each element of `/api/search` (conf
 ## Rules
 
 - **Set a descriptive `User-Agent`** identifying the app + version + a contact/URL — LRCLIB requests this
-  of all clients. (`scripts/lyrics-fetch.sh` does not yet send one; add `-A` if rate-limited.)
+  of all clients. `scripts/lyrics-fetch.sh` sends it via `curl -A "$UA"` (`UA` constant near the `API`
+  definition: `rmpc-lrclib/1.0 (+https://github.com/igarcez/rmpc-lrclib)`); bump the version when the
+  script changes materially.
 - Be polite on **batch** fetches: serialize/throttle requests; there is no published hard rate limit but
   the service is free and donation-funded.
 - A no-match on `/api/get` is `404` (curl `-f` exits `22`) — distinct from a transport failure; the hook

@@ -34,18 +34,20 @@ fi
 enc() { printf '%s' "$1" | jq -sRr @uri; }
 DUR=$(printf '%s' "${DURATION:-}" | grep -oE '[0-9]+' | head -n1)
 API='https://lrclib.net/api'
+# LRCLIB asks clients to identify themselves (app/version + contact URL).
+UA='rmpc-lrclib/1.0 (+https://github.com/igarcez/rmpc-lrclib)'
 
 # Search (all variants) then /get fallback. reached=1 when the server answered
 # (curl exit 0/22) -> distinguishes "no lyrics" from "unreachable".
 reached=0
-arr=$(curl -fsS "$API/search?artist_name=$(enc "$ARTIST")&track_name=$(enc "$TITLE")" 2>/dev/null); rc=$?
+arr=$(curl -fsS -A "$UA" "$API/search?artist_name=$(enc "$ARTIST")&track_name=$(enc "$TITLE")" 2>/dev/null); rc=$?
 [ "$rc" -eq 0 ] || arr=""
 { [ "$rc" -eq 0 ] || [ "$rc" -eq 22 ]; } && reached=1
 if [ -z "$arr" ] || [ "$arr" = "[]" ]; then
     url="$API/get?artist_name=$(enc "$ARTIST")&track_name=$(enc "$TITLE")"
     [ -n "${ALBUM:-}" ] && url="$url&album_name=$(enc "$ALBUM")"
     [ -n "$DUR" ] && url="$url&duration=$DUR"
-    one=$(curl -fsS "$url" 2>/dev/null); grc=$?
+    one=$(curl -fsS -A "$UA" "$url" 2>/dev/null); grc=$?
     { [ "$grc" -eq 0 ] || [ "$grc" -eq 22 ]; } && reached=1
     [ "$grc" -eq 0 ] && [ -n "$one" ] && arr="[$one]"
 fi
