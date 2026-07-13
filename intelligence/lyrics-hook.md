@@ -20,21 +20,23 @@ script plus its rmpc wiring (`examples/config.ron`) and docs (`README.md`).
 
 ## How the fetch works
 
-- Queries `$API/search` (`API='https://lrclib.net/api'`) first — it returns every variant so a synced
-  one can be chosen; falls back to `$API/get` (adds `album_name` + `duration`). `/get` can return a
-  plain record even when a synced one exists, so search is primary.
-- Selection (`resp=` jq pipeline): drop `instrumental`, prefer records with non-empty `syncedLyrics`,
-  then sort by closest `duration` to the playing track. rmpc's Lyrics pane renders **only**
-  `[mm:ss]`-timestamped lines, so synced is always preferred; plain is last resort.
+- Queries `$API/search` (`API='https://lrclib.net/api'`) first — it returns every variant; falls
+  back to `$API/get` (adds `album_name` + `duration`). `/get` can return a plain record even when a
+  synced one exists, so search is primary.
+- Selection (`resp=` jq pipeline): drop `instrumental`, take the best match (first result after
+  sorting by duration), and **only accept it if it has `syncedLyrics`**. rmpc's Lyrics pane renders
+  **only** `[mm:ss]`-timestamped lines; plain-only tracks are skipped (no lyrics written, miss marker
+  set for 30-day skip).
 - Writes `[ar:]`, `[al:]` (only if `ALBUM` set), `[ti:]` headers then the lyric body to `$LRC_FILE`.
-- Never overwrites an existing **synced** `.lrc` (the early `grep -qE '^\[[0-9]{2}:[0-9]{2}'` guard);
-  an existing **plain** `.lrc` is re-fetched and upgraded. Skips `http://`/`https://` streams.
+- Never overwrites an existing **synced** `.lrc` (the early `grep -qE '^\[[0-9]{2}:[0-9]{2}'` guard).
+  Skips `http://`/`https://` streams.
 
 ## Miss cache
 
 - `MISS_DIR="$HOME/.cache/rmpc/lyrics-misses"`; marker file keyed by `cksum` of `$LRC_FILE`.
-- `miss_set` on a definitive negative (server answered but no match, only-plain, empty/instrumental)
-  → skip refetch for **30 days** (`find -mtime +30` gates the retry). `miss_clear` on a synced write.
+- `miss_set` on a definitive negative (server answered but no match, only-plain available,
+  empty/instrumental) → skip refetch for **30 days** (`find -mtime +30` gates the retry). `miss_clear`
+  on any synced write (all writes are synced after this change).
 - A **transport failure** (server unreachable) writes **no** marker (`reached` stays 0) so the next
   play retries immediately. `reached` is set when `curl` exits 0 (200) or 22 (HTTP ≥400).
 - Force a full retry: delete `~/.cache/rmpc/lyrics-misses/`.

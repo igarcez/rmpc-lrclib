@@ -58,20 +58,17 @@ if [ -z "$arr" ] || [ "$arr" = "[]" ]; then
     exit 0
 fi
 
-# Drop instrumentals; prefer synced records; nearest duration. Pane renders only synced.
+# Drop instrumentals; take best match only if synced. Pane renders only synced.
 resp=$(printf '%s' "$arr" | jq -c --argjson d "${DUR:-0}" '
     map(select(.instrumental != true))
-    | ([ .[] | select((.syncedLyrics // "") != "") ]) as $s
-    | (if ($s | length) > 0 then $s else . end)
     | (if $d > 0 then sort_by(((.duration // 0) - $d) | if . < 0 then -. else . end) else . end)
-    | .[0] // empty' 2>/dev/null)
-[ -n "$resp" ] || { log "no usable match: $ARTIST - $TITLE"; miss_set; exit 0; }
+    | .[0]
+    | select((.syncedLyrics // "") != "")' 2>/dev/null)
+[ -n "$resp" ] || { log "no synced available: $ARTIST - $TITLE"; miss_set; exit 0; }
 
-synced=$(printf '%s' "$resp" | jq -r '.syncedLyrics // empty')
-plain=$(printf '%s' "$resp" | jq -r '.plainLyrics // empty')
-if [ -n "$synced" ]; then body="$synced"; kind=synced
-else body="$plain"; kind=plain; fi
+body=$(printf '%s' "$resp" | jq -r '.syncedLyrics // empty')
 [ -n "$body" ] || { log "empty lyrics: $ARTIST - $TITLE"; miss_set; exit 0; }
+kind=synced
 
 mkdir -p "$(dirname "$LRC_FILE")" 2>/dev/null || true
 {
@@ -82,8 +79,7 @@ mkdir -p "$(dirname "$LRC_FILE")" 2>/dev/null || true
 } >"$LRC_FILE"
 log "wrote $kind: $LRC_FILE"
 
-# Synced -> clear miss. Plain-only -> keep the file but mark a miss.
-if [ "$kind" = synced ]; then miss_clear; else miss_set; fi
+miss_clear
 
 # Notify running rmpc to re-read so the *current* song's pane populates.
 rmpc remote indexlrc --path "$LRC_FILE" 2>/dev/null && log "indexed: $LRC_FILE"

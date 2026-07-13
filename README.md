@@ -36,7 +36,6 @@ On each song change rmpc runs `scripts/lyrics-fetch.sh`, which:
    ```
 
 2. Merge the keys from [`examples/config.ron`](examples/config.ron) into your `~/.config/rmpc/config.ron`:
-
    - **`lyrics_dir`** — set to your MPD `music_directory` so `.lrc` files sit beside the audio.
    - **`on_song_change`** — point at the script; keep the trailing `&` so a slow fetch never blocks rmpc:
 
@@ -55,7 +54,7 @@ On each song change rmpc runs `scripts/lyrics-fetch.sh`, which:
 
 ## Running multiple hooks (optional dispatcher)
 
-Want lyrics fetching *and* other `on_song_change` behavior (e.g. desktop notifications)? `on_song_change`
+Want lyrics fetching _and_ other `on_song_change` behavior (e.g. desktop notifications)? `on_song_change`
 takes a single command, so use a small dispatcher that backgrounds every script in a directory. Each script
 inherits rmpc's env.
 
@@ -98,6 +97,10 @@ Add behavior later by dropping another `*.sh` into `on-song-change.d/`.
   marker) to re-query LRCLIB immediately instead of waiting out the 30-day window.
 - **Pane stays empty:** confirm `Pane(Lyrics)` is in a tab layout and the `.lrc` contains `[mm:ss]` lines —
   plain (untimestamped) lyrics render nothing in rmpc's pane.
+
+## TODO
+
+- add notifications
 
 ## License
 
