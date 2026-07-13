@@ -7,6 +7,19 @@ LOG="$HOME/.cache/rmpc/lyrics-fetch.log"
 mkdir -p "$(dirname "$LOG")" 2>/dev/null || true
 log() { printf '%s %s\n' "$(date '+%H:%M:%S')" "$*" >>"$LOG" 2>/dev/null; }
 
+NOTIFY_DIR="$HOME/.cache/rmpc/lyrics-notify"
+notify_status() {
+    _event="$1" _artist="${2:-}" _title="${3:-}" _error="${4:-}"
+    _nfile="$NOTIFY_DIR/$(printf '%s' "$LRC_FILE" | cksum | cut -d' ' -f1)"
+    mkdir -p "$NOTIFY_DIR" 2>/dev/null || true
+    {
+        printf 'EVENT=%s\n' "$_event"
+        printf 'ARTIST=%s\n' "$_artist"
+        printf 'TITLE=%s\n' "$_title"
+        printf 'ERROR=%s\n' "$_error"
+    } >"$_nfile"
+}
+
 # Skip HTTP/radio streams.
 case "${FILE:-}" in
     http://*|https://*) exit 0 ;;
@@ -31,6 +44,9 @@ if [ -f "$MARKER" ] && [ -z "$(find "$MARKER" -mtime +30 2>/dev/null)" ]; then
     exit 0
 fi
 
+# Notify: about to fetch
+notify_status "fetching" "$ARTIST" "$TITLE"
+
 enc() { printf '%s' "$1" | jq -sRr @uri; }
 DUR=$(printf '%s' "${DURATION:-}" | grep -oE '[0-9]+' | head -n1)
 API='https://lrclib.net/api'
@@ -53,8 +69,14 @@ if [ -z "$arr" ] || [ "$arr" = "[]" ]; then
 fi
 # Definitive miss only if the server answered; transport failure leaves no marker.
 if [ -z "$arr" ] || [ "$arr" = "[]" ]; then
-    if [ "$reached" -eq 1 ]; then log "no match: $ARTIST - $TITLE"; miss_set
-    else log "lookup failed (net): $ARTIST - $TITLE"; fi
+    if [ "$reached" -eq 1 ]; then
+        log "no match: $ARTIST - $TITLE"
+        notify_status "no-match" "$ARTIST" "$TITLE"
+        miss_set
+    else
+        log "lookup failed (net): $ARTIST - $TITLE"
+        notify_status "network-error" "$ARTIST" "$TITLE" "LRCLIB unreachable"
+    fi
     exit 0
 fi
 
@@ -64,10 +86,10 @@ resp=$(printf '%s' "$arr" | jq -c --argjson d "${DUR:-0}" '
     | (if $d > 0 then sort_by(((.duration // 0) - $d) | if . < 0 then -. else . end) else . end)
     | .[0]
     | select((.syncedLyrics // "") != "")' 2>/dev/null)
-[ -n "$resp" ] || { log "no synced available: $ARTIST - $TITLE"; miss_set; exit 0; }
+[ -n "$resp" ] || { log "no synced available: $ARTIST - $TITLE"; notify_status "no-match" "$ARTIST" "$TITLE"; miss_set; exit 0; }
 
 body=$(printf '%s' "$resp" | jq -r '.syncedLyrics // empty')
-[ -n "$body" ] || { log "empty lyrics: $ARTIST - $TITLE"; miss_set; exit 0; }
+[ -n "$body" ] || { log "empty lyrics: $ARTIST - $TITLE"; notify_status "no-match" "$ARTIST" "$TITLE"; miss_set; exit 0; }
 kind=synced
 
 mkdir -p "$(dirname "$LRC_FILE")" 2>/dev/null || true
@@ -78,6 +100,7 @@ mkdir -p "$(dirname "$LRC_FILE")" 2>/dev/null || true
     printf '%s\n' "$body"
 } >"$LRC_FILE"
 log "wrote $kind: $LRC_FILE"
+notify_status "success" "$ARTIST" "$TITLE"
 
 miss_clear
 

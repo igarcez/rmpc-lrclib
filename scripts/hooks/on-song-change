@@ -1,0 +1,13 @@
+#!/bin/sh
+# rmpc on_song_change dispatcher. Runs every *.sh in on-song-change.d/ in the
+# background so a slow hook (lyrics fetch) never blocks rmpc or the other hooks.
+# rmpc's env (ARTIST/TITLE/ALBUM/DURATION/FILE/LRC_FILE/HAS_LRC/NAME/CURRENT_SONG)
+# is inherited by each hook. Add behavior by dropping a new *.sh into the dir.
+set -u
+DIR="$(dirname "$0")/on-song-change.d"
+[ -d "$DIR" ] || exit 0
+for h in "$DIR"/*.sh; do
+    [ -f "$h" ] || continue
+    sh "$h" &
+done
+exit 0

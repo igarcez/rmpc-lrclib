@@ -11,10 +11,11 @@
     //    so each .lrc lands beside its audio file (LRCLIB filename mirrors the audio).
     lyrics_dir: "~/Music/",
 
-    // 2. Run the hook on every song change. The trailing `&` backgrounds it so a slow
-    //    LRCLIB round-trip (5-10s) never blocks rmpc. Adjust the path to where you
-    //    installed the script (see README).
-    on_song_change: Some(["sh", "-c", "sh \"$HOME/.config/rmpc/scripts/lyrics-fetch.sh\" &"]),
+    // 2. Run the on-song-change dispatcher on every song change. It backgrounds every
+    //    *.sh in scripts/hooks/on-song-change.d/ (lyrics fetch + notifications), so a slow
+    //    LRCLIB round-trip (5-10s) never blocks rmpc. The outer `&` backgrounds the
+    //    dispatcher itself. Adjust the path to where you installed it (see README).
+    on_song_change: Some(["sh", "-c", "sh \"$HOME/.config/rmpc/scripts/hooks/on-song-change\" &"]),
 
     // 3. REQUIRED for lyrics: also fire the hook once for the track already playing
     //    when rmpc starts / a playlist loads / the config hot-reloads. Without this the

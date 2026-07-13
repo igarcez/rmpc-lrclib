@@ -7,8 +7,8 @@ spawns (dash, busybox, bash-as-sh), so scripts must be **POSIX `sh`** — no bas
 
 | Command | Purpose |
 |---------|---------|
-| `sh -n scripts/lyrics-fetch.sh` | Syntax-check a script without running it. Run before considering an edit done. |
-| `shellcheck scripts/lyrics-fetch.sh` | Lint for portability/quoting bugs. Optional — not installed by default; run if available. |
+| `sh -n scripts/hooks/on-song-change.d/lyrics-fetch.sh` | Syntax-check a script without running it. Run before considering an edit done (swap the path for the dispatcher `scripts/hooks/on-song-change` or any other hook). |
+| `shellcheck scripts/hooks/on-song-change.d/lyrics-fetch.sh` | Lint for portability/quoting bugs. Optional — not installed by default; run if available. |
 
 ## Rules
 

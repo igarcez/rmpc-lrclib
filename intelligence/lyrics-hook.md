@@ -1,8 +1,22 @@
 # Lyrics hook
 
-`scripts/lyrics-fetch.sh` is an rmpc `on_song_change` hook: on each song change it fetches synced
-lyrics from LRCLIB and writes a `.lrc` beside the audio. The whole repo exists to ship this one
-script plus its rmpc wiring (`examples/config.ron`) and docs (`README.md`).
+`scripts/hooks/on-song-change.d/lyrics-fetch.sh` is an rmpc `on_song_change` hook: on each song change
+it fetches synced lyrics from LRCLIB and writes a `.lrc` beside the audio. The whole repo exists to ship
+this hook plus its rmpc wiring (`examples/config.ron`) and docs (`README.md`).
+
+## Dispatcher layout
+
+- rmpc's `on_song_change` runs a **single** command, so the repo ships a dispatcher —
+  `scripts/hooks/on-song-change` — that backgrounds every `*.sh` in `scripts/hooks/on-song-change.d/`.
+  `on_song_change` points at the dispatcher, not at `lyrics-fetch.sh` directly.
+- Shipped hooks in `on-song-change.d/`: `lyrics-fetch.sh` (the core fetch) and
+  `notify-lyrics-status.sh` (desktop `notify-send` notifications). Add behavior by dropping another
+  executable `*.sh` into the dir.
+- **Notify signalling:** `lyrics-fetch.sh` writes a status file under
+  `NOTIFY_DIR="$HOME/.cache/rmpc/lyrics-notify"` (keyed by `cksum` of `$LRC_FILE`) via `notify_status`
+  at each stage (`fetching`/`success`/`no-match`/`network-error`); `notify-lyrics-status.sh` polls for
+  that file (~2s), sources it, fires `notify-send`, then deletes it. The two hooks run concurrently
+  under the dispatcher — the poll bridges the race.
 
 ## rmpc contract
 
@@ -11,9 +25,10 @@ script plus its rmpc wiring (`examples/config.ron`) and docs (`README.md`).
   tilde-expanded by rmpc), `HAS_LRC`. The script reads these via `${VAR:-}` (see [shell-style.md](shell-style.md)).
 - The hook is wired by three config keys (documented in `examples/config.ron` + README "Install"):
   `lyrics_dir` (= the MPD `music_directory` so `.lrc` lands beside audio), `on_song_change`
-  (`Some(["sh","-c","sh \"$HOME/.config/rmpc/scripts/lyrics-fetch.sh\" &"])` — `$HOME` not `~`,
-  trailing `&` so a slow fetch never blocks rmpc), and `exec_on_song_change_at_start: true`
-  (**required** — without it the track playing at launch is never fetched).
+  (`Some(["sh","-c","sh \"$HOME/.config/rmpc/scripts/hooks/on-song-change\" &"])` — points at the
+  **dispatcher**, `$HOME` not `~`, trailing `&` so a slow fetch never blocks rmpc), and
+  `exec_on_song_change_at_start: true` (**required** — without it the track playing at launch is
+  never fetched).
 - After writing the file the script **must** call `rmpc remote indexlrc --path "$LRC_FILE"` so the
   running rmpc re-reads it and the Lyrics pane populates for the *current* song (rmpc read
   `HAS_LRC=false` before the async fetch finished).
@@ -43,9 +58,12 @@ script plus its rmpc wiring (`examples/config.ron`) and docs (`README.md`).
 
 ## Rules
 
-- **Lockstep:** the install path, env-var names, and the three config keys appear in three places —
-  `scripts/lyrics-fetch.sh`, `examples/config.ron`, and `README.md`. Change one, update all three.
-- `lyrics-fetch.sh` must stay executable (`chmod +x`) and POSIX `sh` — see [shell-style.md](shell-style.md).
+- **Lockstep:** the install paths, env-var names, and the three config keys appear across
+  `scripts/hooks/on-song-change` (dispatcher), `scripts/hooks/on-song-change.d/lyrics-fetch.sh`,
+  `examples/config.ron`, and `README.md`. Change one, update the others (and re-sync the live copies
+  under `~/.config/rmpc/scripts/hooks/`).
+- The dispatcher and every `on-song-change.d/*.sh` hook must stay executable (`chmod +x`) and POSIX
+  `sh` — see [shell-style.md](shell-style.md).
 - Test a fetch by **polling** for `$LRC_FILE` (`while [ ! -f "$T" ]; do sleep 1; done`), not a fixed
   `sleep N` — the LRCLIB round-trip takes ~5-10s and a short sleep gives a false negative.
 - Log lines append to `~/.cache/rmpc/lyrics-fetch.log` (`wrote synced:`, `no match:`,

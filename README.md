@@ -6,7 +6,8 @@ play that lacks lyrics gets a timestamped `.lrc` written beside it — live, for
 
 ## What it does
 
-On each song change rmpc runs `scripts/lyrics-fetch.sh`, which:
+On each song change rmpc runs the `on-song-change` dispatcher, which backgrounds every hook in
+`scripts/hooks/on-song-change.d/`. The core hook, `lyrics-fetch.sh`:
 
 - Queries LRCLIB `/search` for the current `ARTIST` + `TITLE`, falling back to `/get` (with `ALBUM` + `DURATION`).
 - **Prefers a `syncedLyrics` record** (closest `duration` to the playing track) — rmpc's Lyrics pane renders
@@ -27,20 +28,25 @@ On each song change rmpc runs `scripts/lyrics-fetch.sh`, which:
 
 ## Install
 
-1. Copy the script into your rmpc config dir and make it executable:
+The hooks run under a small dispatcher: rmpc calls `scripts/hooks/on-song-change`, which backgrounds
+every `*.sh` in `scripts/hooks/on-song-change.d/`. This lets lyrics fetching and notifications (and any
+hook you add later) share the single `on_song_change` slot without blocking each other.
+
+1. Copy the dispatcher and its hooks into your rmpc config dir and make them executable:
 
    ```sh
-   mkdir -p ~/.config/rmpc/scripts
-   cp scripts/lyrics-fetch.sh ~/.config/rmpc/scripts/lyrics-fetch.sh
-   chmod +x ~/.config/rmpc/scripts/lyrics-fetch.sh
+   mkdir -p ~/.config/rmpc/scripts/hooks/on-song-change.d
+   cp scripts/hooks/on-song-change ~/.config/rmpc/scripts/hooks/on-song-change
+   cp scripts/hooks/on-song-change.d/*.sh ~/.config/rmpc/scripts/hooks/on-song-change.d/
+   chmod +x ~/.config/rmpc/scripts/hooks/on-song-change ~/.config/rmpc/scripts/hooks/on-song-change.d/*.sh
    ```
 
 2. Merge the keys from [`examples/config.ron`](examples/config.ron) into your `~/.config/rmpc/config.ron`:
    - **`lyrics_dir`** — set to your MPD `music_directory` so `.lrc` files sit beside the audio.
-   - **`on_song_change`** — point at the script; keep the trailing `&` so a slow fetch never blocks rmpc:
+   - **`on_song_change`** — point at the dispatcher; keep the trailing `&` so a slow fetch never blocks rmpc:
 
      ```ron
-     on_song_change: Some(["sh", "-c", "sh \"$HOME/.config/rmpc/scripts/lyrics-fetch.sh\" &"]),
+     on_song_change: Some(["sh", "-c", "sh \"$HOME/.config/rmpc/scripts/hooks/on-song-change\" &"]),
      ```
 
      > `$HOME` is required here — `~` does not expand inside an `on_song_change` argv.
@@ -52,40 +58,8 @@ On each song change rmpc runs `scripts/lyrics-fetch.sh`, which:
 3. Restart rmpc (or save the config if `enable_config_hot_reload` is on). Play a track and the `.lrc` appears
    within a few seconds.
 
-## Running multiple hooks (optional dispatcher)
-
-Want lyrics fetching _and_ other `on_song_change` behavior (e.g. desktop notifications)? `on_song_change`
-takes a single command, so use a small dispatcher that backgrounds every script in a directory. Each script
-inherits rmpc's env.
-
-Create `~/.config/rmpc/scripts/hooks/on-song-change`:
-
-```sh
-#!/bin/sh
-# Runs every *.sh in on-song-change.d/ in the background so a slow hook never blocks rmpc.
-set -u
-DIR="$(dirname "$0")/on-song-change.d"
-[ -d "$DIR" ] || exit 0
-for h in "$DIR"/*.sh; do
-    [ -f "$h" ] || continue
-    sh "$h" &
-done
-exit 0
-```
-
-Then `chmod +x` it, move the lyrics script into the dispatcher dir, and point rmpc at the dispatcher:
-
-```sh
-chmod +x ~/.config/rmpc/scripts/hooks/on-song-change
-mkdir -p ~/.config/rmpc/scripts/hooks/on-song-change.d
-mv ~/.config/rmpc/scripts/lyrics-fetch.sh ~/.config/rmpc/scripts/hooks/on-song-change.d/
-```
-
-```ron
-on_song_change: Some(["sh", "-c", "sh \"$HOME/.config/rmpc/scripts/hooks/on-song-change\" &"]),
-```
-
-Add behavior later by dropping another `*.sh` into `on-song-change.d/`.
+Add more `on_song_change` behavior later by dropping another executable `*.sh` into
+`~/.config/rmpc/scripts/hooks/on-song-change.d/` — each hook inherits rmpc's env.
 
 ## Troubleshooting
 
@@ -98,9 +72,22 @@ Add behavior later by dropping another `*.sh` into `on-song-change.d/`.
 - **Pane stays empty:** confirm `Pane(Lyrics)` is in a tab layout and the `.lrc` contains `[mm:ss]` lines —
   plain (untimestamped) lyrics render nothing in rmpc's pane.
 
+## Notifications
+
+Lyrics fetch events trigger desktop notifications via `notify-send`:
+
+- **Fetching:** appears when a lookup starts.
+- **Fetched:** appears when lyrics are saved successfully.
+- **No lyrics found:** appears when the track has no synced lyrics; will not retry for 30 days.
+- **Connection failed:** appears if LRCLIB is unreachable.
+
+Notifications require `notify-send` (freedesktop.org standard). If you use a non-standard notification daemon (e.g. dunst), update `notify-send` in `scripts/hooks/on-song-change.d/notify-lyrics-status.sh` to your notification command.
+
+Disable notifications by removing `scripts/hooks/on-song-change.d/notify-lyrics-status.sh` from `~/.config/rmpc/scripts/hooks/on-song-change.d/`.
+
 ## TODO
 
-- add notifications
+- add permanent failure for instrumental musics
 
 ## License
 

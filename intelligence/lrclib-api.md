@@ -3,7 +3,7 @@
 The upstream lyrics service this repo fetches from. Source docs: `https://lrclib.net/docs`
 (the page is a JS SPA — fetch the endpoints live, don't scrape the HTML). Base URL
 `https://lrclib.net/api`. No auth or API key for reads; publishing uses a proof-of-work token.
-How `scripts/lyrics-fetch.sh` consumes this API: [lyrics-hook.md](lyrics-hook.md).
+How `scripts/hooks/on-song-change.d/lyrics-fetch.sh` consumes this API: [lyrics-hook.md](lyrics-hook.md).
 
 ## Endpoints
 
@@ -46,7 +46,7 @@ Returned by `/api/get`, `/api/get/{id}`, and each element of `/api/search` (conf
 ## Rules
 
 - **Set a descriptive `User-Agent`** identifying the app + version + a contact/URL — LRCLIB requests this
-  of all clients. `scripts/lyrics-fetch.sh` sends it via `curl -A "$UA"` (`UA` constant near the `API`
+  of all clients. `scripts/hooks/on-song-change.d/lyrics-fetch.sh` sends it via `curl -A "$UA"` (`UA` constant near the `API`
   definition: `rmpc-lrclib/1.0 (+https://github.com/igarcez/rmpc-lrclib)`); bump the version when the
   script changes materially.
 - Be polite on **batch** fetches: serialize/throttle requests; there is no published hard rate limit but
