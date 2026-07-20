@@ -15,7 +15,8 @@ this hook plus its rmpc wiring (`examples/config.ron`) and docs (`README.md`).
 - **Notify signalling:** `lyrics-fetch.sh` writes a status file under
   `NOTIFY_DIR="$HOME/.cache/rmpc/lyrics-notify"` (keyed by `cksum` of `$LRC_FILE`) via `notify_status`
   at each stage (`fetching`/`success`/`no-match`/`network-error`); `notify-lyrics-status.sh` polls for
-  that file (~2s), sources it, fires `notify-send`, then deletes it. The two hooks run concurrently
+  that file (~2s), parses it (safe `sed`, not `.`-sourced — values hold spaces/metadata), fires
+  `notify-send`, then deletes it. The two hooks run concurrently
   under the dispatcher — the poll bridges the race.
 
 ## rmpc contract

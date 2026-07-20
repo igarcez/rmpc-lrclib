@@ -19,8 +19,13 @@ done
 
 [ -f "$STATUS_FILE" ] || exit 0
 
-# Source the status file.
-. "$STATUS_FILE"
+# Parse the status file. Do NOT `.`-source it: values hold spaces (and arbitrary
+# track metadata), which sourcing would split into commands.
+field() { sed -n "s/^$1=//p" "$STATUS_FILE" | head -n1; }
+EVENT=$(field EVENT)
+ARTIST=$(field ARTIST)
+TITLE=$(field TITLE)
+ERROR=$(field ERROR)
 
 # Send notification based on event.
 case "${EVENT:-}" in
